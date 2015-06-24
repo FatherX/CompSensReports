@@ -1,0 +1,125 @@
+\documentclass[11pt,twoside,a4paper]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{amsthm}
+\pagestyle{plain}
+\newcommand{\supp}{\text{supp}}
+
+%opening
+\title{A Short Introduction to Compressed Sensing}
+\author{M.D.Baltzer}
+
+\begin{document}
+
+\maketitle
+
+% \begin{abstract}
+
+
+% \end{abstract}
+% \newpage
+% \tableofcontents
+% \newpage
+
+\section{Introduction}
+Compressed sensing (CS) or compressive sampling is a new framework of signal acquisition with significant advances in the theory over the last 10 years. As a result of the drive for higher resolution and data capture rates, the amount of data generated world-wide exceeded the available storage capacity in $\pm2007$ \cite{RB} and continues to rise. Computer processing rates or clock times are increasing at a rate of Moore’s Law (approximately doubling every one and a half years), however our ability to convert analogue signals to digital in terms of the sampling rate is only doubling in the region of every 6 to 8 years \cite{RB}. It therefore makes imminent sense to reduce the amount of data acquired, especially if a significant portion of it is discarded in subsequent processing (e.g. JPEG compression) or the downstream transmission is unable to cope with the data rates. One way to reduce the quantity of data is through a dimensionality reduction especially of signals of known sparsity or compressibility. By sparse we mean a signal representation of length $n$ with $k$ non zero coefficients. A compressible signal on the other hand is one which can be well represented by a signal with only $k$ of the $n$ coefficients \cite{GK}. A classic example of such a signal is one of an image in which the pixel energy values are transformed either by a Fourier transform or discrete cosine transform (DCT). These coefficients if arranged in order of magnitude, decay at a power law rate and by retaining the k largest coefficients and discarding the rest, the siganl is well represented. The existing paradigm to signal acquisition is that one has to sample at twice the Nyquist rate (twice the highest frequency of a bandlimited signal) to recover the signal perfectly. Intuitively one would think that it must be possible with measurements proportional to the size of the compressed signal. In fact it can be shown that with as few as $O(klog(n/k)$ measurements of a k-sparse signal, the signal can be recovered exactly \cite{GK}. In principle the problem is one of a dimensionality reduction and recovery of the original signal which can be expressed mathematically by:
+\begin{equation}
+\mathbf{y}=A\mathbf{x}
+\end{equation}
+where $\mathbf{y}$ is the measured signal and $\mathbf{x}$ the signal to be recovered. If the measurement matrix $A$ was full rank there would be no problem as there would be a unique solution to $\mathbf{x}$, however with only $k$ measurements of a signal of length $n$ the system is under-determined. To obtain a solution we need to turn to some sort of recovery algorithm with appropriate constraints. In this text we aim to discuss the properties of a desired sensing matrix $A$ and some of the algorithms available to reconstruct the signal.
+
+\section{Background Information}\label{sec: background}
+In order to anaylse compressed sensing a number of mathematical concepts for vectors and matrices are required. In the rest of the text, vectors will be denoted by bold font $\mathbf{x}^n$ where $n$ is the dimension of the vector, vector components will be denoted by $x_i$ where $i$ is the vector component and vector  norms will be denoted by ${\lVert x \rVert}_p$ where $p$ is the $l_p$ norm given by:
+	\begin{equation}
+		{\lVert x \rVert}_p=\left (\sum_{i=1}^n{{\lvert x_i\rvert}^p}\right )^{1/p}
+	\end{equation}
+The following concepts are used to describe the desired properties of the sensing matrix $A$:\\
+\begin{itemize}
+	\item A basis for $\mathbb{R}^n$ is denoted by ${\phi}_{i=1}^n$ if the vectors $\phi_i$ span $\mathbb{R}^n$ and are linearly independent.
+	\item The null space of a matrix $A$ is defined by $\mathcal{N}(A)=\{\mathbf{x}\lvert A\mathbf{x}=\mathbf{0}\; \forall\; \mathbf{x} \in \mathbb{R}^n\}$.
+	\item The spark of a matrix is the minimum number of colums in $A$ such that there are $n$ linearly dependent colums. For example if there are 4 	linearly dependent colums and there are no smaller sets of columns that are linearly dependent then $\mathit{spark}(A)=4$.
+	\item The $l_0$ norm of $\mathbf{x}$ written ${\lVert \mathbf{x} \rVert}_0$ is defined as ${\lVert \mathbf{x} \rVert}_0=\lvert \supp(\mathbf{x})\rvert$ where $\supp(\mathbf{x})=\{i \,\vert\,x_i\neq 0\}$
+	\item A k sparse signal is one for which ${\Sigma}_k=\{\mathbf{x}\;\vert \; \lVert \mathbf{x} \rVert_0 \leq k \}$ where $k$ is the number of non zero coefficients of the polynomial representing the signal. Normally $k$ is very much smaller than $n$, the ambient dimension of the signal.
+	\item The null space property (NSP) of order $k$ of a matrix $A$ is one for which there exists a constant $C$ such that
+		\begin{equation}
+			{\lVert h_{\Lambda}\rVert}_2\leq C\frac{\lVert h_{{\Lambda}^c}\rVert_1}{\sqrt{k}}
+		\end{equation}
+	where $h \in \mathcal{N}(A)$. $\Lambda$ is the set of indices of the n non zero coefficients such that $\lvert \Lambda \rvert \leq k$ and ${\Lambda}^c$ are those not in $\Lambda$.
+	\item A measure of the compressiblility of a signal can be given by the error in quantifing a signal $\mathbf{x}$ by a signal $\hat{\mathbf{x}}$ usch that:
+		\begin{equation}
+			{\sigma}_k {(\mathbf(x)}_p=\min_{\hat{\mathbf{x}}\in {\Sigma}_k} \lVert \mathbf{x}-\hat{\mathbf{x}} \rVert_p
+		\end{equation}
+	\item The restricted isometry property (RIP). A matrix $A$ satisfies the RIP of order k if there exists a $\delta_k \in (0,1)$ such that
+		\begin{equation}
+			(1-\delta_k){\lVert \mathbf{x} \rVert}_2^2 \leq {\lVert A\mathbf{x} \rVert}_2^2 \leq (1+ \delta_k){\lVert \mathbf{x} \rVert}_2^2
+		\end{equation}
+	\item The coherence of a matrix $\mu(A)$, is the largest absolute inner product between any two colums of $A$ :
+		\begin{equation}
+			\mu(A)=\max_{1\leq i < j \leq n}\frac{\langle a_i,a_j \rangle}{{\lVert a_i \rVert}_2{\lVert a_j \rVert}_2}
+		\end{equation}
+\end{itemize}
+
+\section{Signal Recovery}\label{recovery}
+In our discussion of a sensing matrix we will assume that the signal is already discretized by some means or another and that we are dealing with a sparse representation of the signal at hand. The construction of the sensing matrix will be disucssed in more detail later in the text. For now we have been given a suitable sensing matrix with which to work with. This matrix is composed of the coefficients of stacked functions so that multiplication of a signal vector $\mathbf{x}$ with $A$ is an inner product of the test functions with the vector of interest. In principle we are comparing the signal against a test test signal so that the measurement $\mathbf{y}$ can be written as
+	\begin{equation*}
+		\mathbf{y}=A\mathbf{x}
+	\end{equation*}
+In order to reconstruct the signal vector $\mathbf{x}$ from the measurement we can find the closest match to it by finding the vector $\hat{\mathbf{x}}$ that matches the measurement $\mathbf{y}$. Naively we could choose to minimize the $l_2$ norm as in solving a least squares problem. This can be written mathematically as
+	\begin{equation}
+	\hat{\mathbf{x}} \quad \text{such that} \quad {\lVert \mathbf{y}-A\hat{\mathbf{x}} \rVert}_2^2 \quad \text{is minimized}
+	\end{equation}
+The solution to this equation is well known and is given by $\hat{\mathbf{x}}=A^*(AA^*)^{-1}\mathbf{y}$
+where $A^*(AA^*)^{-1}$ is the pseudoinverse of $A$ denoted $A^{\dagger}$ \cite{LT}. This is fine if we wanted to minimize the energy of the signal but this may not be optimal for all types of signals, a classical case being in MRI where most coefficients of the transform are the same size. Then, by taking the k largest coefficients and setting the rest to zero and finding the least squares solution the algorithm fails to find a satisfactory $\mathbf{x}$ \cite{TT}. Instead if we tried to solve the optimization problem:\\
+\begin{equation}
+	\hat{\mathbf{x}}=\arg_{\mathbf{z}} \min { \lVert \mathbf{z} \rVert}_0  \quad \text{subject to}   \quad z  \in   \mathcal{B}(\mathbf{y})\label{sparseeq}
+\end{equation}
+where $\mathcal{B}(\mathbf{y})=\{z\;\vert\;A\mathbf{z}=\mathbf{y}\}$ and the notation ${\lVert \mathbf{z} \rVert}_0$ refers to the zero norm which is defined by ${\lVert \mathbf{x} \rVert}_0=\lvert \supp(x) \rvert$, where $\supp(x)=\{i\;\vert x_i\neq o\}$, we should find the sparsest $\mathbf{x}$. The problem with this approach is that it is NP-hard i.e. it cannot be solved in polynomial time. This is because to find the solution we need to check all ${}^{n}_{k}\text{C}$ combinations of $k$ columns of $A$.
+The next natural step may be to minimize the function with the $l_1$ norm. We can write this as:
+\begin{equation}
+\hat{\mathbf{x}}={\arg}_{\mathbf{z}}\min{\lVert\mathbf{z}\rVert}_1 \quad \text{subject to} \quad \mathbf{z}\in \mathcal{B}(\mathbf{y})\label{lineareq}
+\end{equation}
+If $\mathcal{B}(\mathbf{y})=\{\mathbf{z} \,\vert A\mathbf{z}=\mathbf{y}\}$ then the problem can be posed as a linear problem \cite{GK}. This is because the ojective function ${\lVert\mathbf{z}\rVert}_1$ is convex. The solution to the linear program is known to promote sparsity, so the solution should be similar to that obtained through \eqref{sparseeq} i.e. a sparse vector. We see this in ${\mathbb{R}}^2$ when we approximate the closest point in $A$ ($\hat{\mathbf{x}}\in A$) to $\mathbf{x}$ using the $l_1$ and $l_2$ norms (figures:\ref{l1norm} and \ref{l2norm}) that we obtain a sparse vector with the $l_1$ norm in contrast to the $l_2$ norm which spreads out the error more evenly among the coefficients. This observation generalizes to higher dimensions \cite{GK}.
+% Insert figure here
+\begin{figure}[tb]
+\centering
+\includegraphics[trim=0 0 0 0,clip=true,width=1\linewidth,keepaspectratio]{./l1_norm.png}
+\caption[Using the $l_1$ norm for approximation of a point in $\mathbb{R}^2$]{Approximation of a point $\mathbf{x}$ by a one-dimensional subspace using the $l_1$ norm}
+\label{l1norm}
+\end{figure}
+\begin{figure}[htb]
+\centering
+\scalebox{1.3}[1.3]{\includegraphics[trim=200 0 0 0,clip=true,width=1\linewidth,keepaspectratio]{./l2_norm.png}}
+\caption[Using the $l_2$ norm for approximation of a point in $\mathbb{R}^2$]{Approximation of a point $\mathbf{x}$ by a one-dimensional subspace using the $l_2$ norm}
+\label{l2norm}
+\end{figure}
+
+\section{The sensing Matrix}
+Earlier we mentioned that a sparse signal could be recoverd exactly with as little as $O(k\log(n/k)$ measurements. It is easy to show that with 2k measuremens the signal can be recovered uniquely from $A\mathbf{x}\in {\mathbb{C}}^{2k}$.
+\newtheorem{rec}{Lemma}[section]
+\begin{rec}\cite{TT}
+suppose that the $m \times n$ measurement matrix $A$ is such that every set of $2k$ columns of $A$ are linearly independent. Then a k-sparse vector $\mathbf{x}\in{\mathbb{C}}^n$ can be reconstructed uniquely from $A\mathbf{x}\in{\mathbb{C}}^{2k}$.
+\end{rec}
+The proof is made by contradiction as follows:
+\begin{proof}\cite{TT}
+Suppose the unique construction failed, then there exists two k-sparse vectors $\mathbf{x}$ , $\mathbf{x}'\in {\mathbb{C}}^n$ such that $A\mathbf{x}=A\mathbf{x}'$ which implies $A(\mathbf{x}-\mathbf{x}')=0$. Since $(\mathbf{x}-\mathbf{x}')$ is $2k$ sparse there must be $2k$ columns that are linearly dependent, which is a contradiction.
+\end{proof}
+To obtainer a tighter bound on the number of measurements we need to define some of the desired properties of our measurement (sensing) matrix. It is immediately evident that if we wish to recover all sparse signals then for any two vectors $\mathbf{x}$ ,$\mathbf{x}'\in \Sigma_k$ we cannot have $A\mathbf{x}=A\mathbf{x}'$. This means that the $\mathcal{N}(A)$ cannot contain any vectors in $\Sigma_{2k}$, refer section \ref{sec: background}. Furthermore we would like our matrix to satisfy the ristricted isometry property \ref{sec: background}.  According to a theorem from Cand\'es and Tao (2005) \cite{TT}, if the matrix obeys the RIP property then, if every collection of $4k$ columns are almost orthogonal in that the $4k$ singular values range between 0.9 and 1.1, then any given $k$-sparse signal $\mathbf{x}$ can be recovered from $A\mathbf{x}$ by basis pursuit \eqref{lineareq}.
+With this in mind we set out to design our sensing matrix. One way would be to deterministically construct a matrix that obeys the RIP property of order $k$., however these tend to lead to an unacceptably high requirement on $m$ \cite{GK}. As it happens a matrix constructed with independent and identically distributed (i.i.d.) entries chosen according to a Gaussian or any subgaussian disribution has the desired properties with high probability \cite{GK}. The number of measurements required to meet these criteria is $m=\mathcal{O}(k log(n/k)/\delta_{2k}^2)$. The choice of random matrix has a numberof benefits over a deterministic construction because in practice we are interested in signals that are sparse with respect to some basis $\Phi$. In this case we require the matrix $A\Phi$ to meet the RIP requirement which it does if $A$ is random. On the other hand if if A is constructed deterministically,  then $\Pi$ would have to be taken into account in the construction to ensure that the resultant product meets the RIP requirements.
+
+\section{Algorithms for recovery}
+If the problem is posed as a covex optimization problem then there are accurate and efficient numerical solvers available. In section \ref{recovery} it was mentioned that equation eqref{lineareq} could be posed and solved as a linear program. In cases where the problem is posed differently e.g. $\mathcal{B}(\mathbf{y})=\{\mathbf{z}\, \vert \, {\lVert A\mathbf{z}-\mathbf{y}\rVert}_2\leq\epsilon$\}then the minimization problem becomes a convex problem with a conic constraint \cite{GK}.
+
+\newpage
+\begin{thebibliography}{99}
+\bibitem{RB}
+Baraniuk, R.,2012. Compressed Sensing. ECE lecture series. Retrieved on 20/3/2015 from https://www.youtube.com/watch?v=RvMgVv-xZhQ.
+\bibitem{GK}
+Kutyniok, G., Eldar, Y.C., Duarte, M.F., Davenport, M.A.,1993. Introduction to compressed sensing. Preprint 93. Retrieved 24/2/2015 from https://www.dfg-spp1324.de/download/preprints/preprint093.pdf 
+\bibitem{LT}
+Trefethen, L.N., 1997. Numerical linear algebra. Society for Industrial and Applied Mathematics, Philadelphia.
+\bibitem{TT}
+Tao, Terence, 2008. Compressed sensing. NTNU's Onsager Lecture, retrieved 19/03/2015 from  https://www.youtube.com/watch?v=IFgeXzturqk\&list=PLC94A02A1218B24DF\&index=2
+
+\end{thebibliography}
+\end{document}
